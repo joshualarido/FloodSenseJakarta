@@ -5,6 +5,9 @@ def extract_clean(path):
     #load raw data
     df = pd.read_csv(path)
 
+    #filter by dki jakarta
+    df = df[df['Provinsi'] == 'Daerah Khusus Ibukota Jakarta']
+    
     #uid from pkey, lat, lon, timestamp from date + time, flood depth
     df['uid'] = df['pkey'].astype(str)
     df['lat'] = df['lat']
@@ -36,30 +39,29 @@ def extract_clean(path):
     timestamps = df['raw_timestamp'].apply(clean_timestamp)
     df['timestamp_utc'] = timestamps.apply(lambda x: x[0])
     df['missing_time_flag'] = timestamps.apply(lambda x: x[1])
+    df['timestamp_utc'] = df['timestamp_utc'].apply(lambda x: x.isoformat())
 
     #flood depth extraction from JSON in report_dat
     def extract_depth(row):
         try:
             data = json.loads(row)
-            if "flood_depth" in data:
-                return data["flood_depth"]
+            return data.get("flood_depth", None)
         except:
             return None
-        return None
 
     df['flood_depth_cm'] = df['report_dat'].apply(extract_depth)
+    df = df.dropna(subset=['flood_depth_cm'])
 
     #final cleaned dataframe
     cleaned = df[['uid', 'lat', 'lon', 'timestamp_utc', 'missing_time_flag', 'flood_depth_cm']]
 
     return cleaned
 
-
 if __name__ == "__main__":
     cleaned = extract_clean("./data_raw/jakarta_disaster_2020_2021.csv")
 
     # Save to file
-    cleaned.to_csv("./data/cleaned_events.csv", index=False)
+    cleaned.to_csv("./data_clean/cleaned_events.csv", index=False)
 
     print("\n===== TOP 20 CLEANED ROWS =====\n")
     print(cleaned.head(20))
